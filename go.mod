@@ -1,6 +1,6 @@
 module github.com/matthewljsmith/whois-parser-go
 
-go 1.14
+go 1.16
 
 require (
 	github.com/likexian/gokit v0.23.3

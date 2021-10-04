@@ -21,6 +21,7 @@ package whoisparser
 
 import (
 	"errors"
+	"fmt"
 	"regexp"
 	"strings"
 
@@ -116,6 +117,7 @@ func Parse(text string) (whoisInfo WhoisInfo, err error) {
 		}
 
 		keyName := FindKeyName(name)
+		fmt.Printf("key: %s - %s", keyName, value)
 		switch keyName {
 		case "domain_id":
 			domain.ID = value

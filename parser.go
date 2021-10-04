@@ -117,7 +117,7 @@ func Parse(text string) (whoisInfo WhoisInfo, err error) {
 		}
 
 		keyName := FindKeyName(name)
-		fmt.Printf("key: %s - %s", keyName, value)
+		fmt.Printf("key: %s - %s\n", keyName, value)
 		switch keyName {
 		case "domain_id":
 			domain.ID = value
@@ -139,14 +139,6 @@ func Parse(text string) (whoisInfo WhoisInfo, err error) {
 		case "name_servers":
 			domain.NameServers = append(domain.NameServers, strings.Split(value, ",")...)
 		case "created_date":
-			if domain.CreatedDate == "" {
-				domain.CreatedDate = value
-			}
-		case "domain_datecreated":
-			if domain.CreatedDate == "" {
-				domain.CreatedDate = value
-			}
-		case "entry_created":
 			if domain.CreatedDate == "" {
 				domain.CreatedDate = value
 			}

@@ -60,6 +60,7 @@ var (
 		"domain registration date":               "created_date",
 		"registration date":                      "created_date",
 		"domain create date":                     "created_date",
+		"domain datecreated":                     "created_date",
 		"domain name commencement date":          "created_date",
 		"registered date":                        "created_date",
 		"registered on":                          "created_date",
@@ -68,6 +69,7 @@ var (
 		"domain record activated":                "created_date",
 		"record created on":                      "created_date",
 		"domain registered":                      "created_date",
+		"entry created":                          "created_date",
 		"modified":                               "updated_date",
 		"changed":                                "updated_date",
 		"update date":                            "updated_date",
@@ -173,6 +175,5 @@ var (
 		"registrant contact email":               "registrant_email",
 		"registrant contact e mail":              "registrant_email",
 		"registrant abuse contact email":         "registrant_email",
-		"entry created":                          "entry_created",
 	}
 )

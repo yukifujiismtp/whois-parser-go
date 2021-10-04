@@ -140,6 +140,10 @@ func Parse(text string) (whoisInfo WhoisInfo, err error) {
 			if domain.CreatedDate == "" {
 				domain.CreatedDate = value
 			}
+		case "domain_datecreated":
+			if domain.CreatedDate == "" {
+				domain.CreatedDate = value
+			}
 		case "entry_created":
 			if domain.CreatedDate == "" {
 				domain.CreatedDate = value

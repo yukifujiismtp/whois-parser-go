@@ -1,5 +1,5 @@
 /*
- * Copyright 2014-2020 Li Kexian
+ * Copyright 2014-2021 Li Kexian
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -39,7 +39,7 @@ type Domain struct {
 	WhoisServer    string   `json:"whois_server,omitempty"`
 	Status         []string `json:"status,omitempty"`
 	NameServers    []string `json:"name_servers,omitempty"`
-	DnsSec         bool     `json:"dnssec,omitempty"`
+	DNSSec         bool     `json:"dnssec,omitempty"`
 	CreatedDate    string   `json:"created_date,omitempty"`
 	UpdatedDate    string   `json:"updated_date,omitempty"`
 	ExpirationDate string   `json:"expiration_date,omitempty"`

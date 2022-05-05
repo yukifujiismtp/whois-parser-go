@@ -1,5 +1,5 @@
 /*
- * Copyright 2014-2020 Li Kexian
+ * Copyright 2014-2021 Li Kexian
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -61,6 +61,7 @@ var (
 		"registration date":                      "created_date",
 		"domain create date":                     "created_date",
 		"domain datecreated":                     "created_date",
+		"domain created":                         "created_date",
 		"domain name commencement date":          "created_date",
 		"registered date":                        "created_date",
 		"registered on":                          "created_date",
@@ -96,9 +97,11 @@ var (
 		"domain expiration date":                 "expired_date",
 		"expiry date":                            "expired_date",
 		"expiration time":                        "expired_date",
+		"domain expire":                          "expired_date",
 		"domain expires":                         "expired_date",
 		"record expires on":                      "expired_date",
 		"record will expire on":                  "expired_date",
+		"renewal date":                           "expired_date",
 		"referral url":                           "referral_url",
 		"registrar url":                          "referral_url",
 		"registrar www":                          "referral_url",
@@ -107,11 +110,13 @@ var (
 		"registration service url":               "referral_url",
 		"registrant c":                           "registrant_id",
 		"registrant id":                          "registrant_id",
-		"registrant nic hdl":                     "registrant_id",
 		"registrant iana id":                     "registrant_id",
 		"registrant contact id":                  "registrant_id",
 		"registrant register number":             "registrant_id",
 		"registrant id number":                   "registrant_id",
+		"registrant nic hdl":                     "registrant_id",
+		"registrant nic handle":                  "registrant_id",
+		"registrant org id":                      "registrant_id",
 		"registrant name":                        "registrant_name",
 		"registrant person":                      "registrant_name",
 		"registrant contact":                     "registrant_name",
@@ -122,6 +127,7 @@ var (
 		"registrant service provider":            "registrant_name",
 		"registrant org":                         "registrant_organization",
 		"registrant organization":                "registrant_organization",
+		"registrant organization name":           "registrant_organization",
 		"registrant contact organization":        "registrant_organization",
 		"registrant organisation":                "registrant_organization",
 		"registrant contact organisation":        "registrant_organization",
@@ -131,6 +137,7 @@ var (
 		"registrant address1":                    "registrant_street",
 		"registrant street":                      "registrant_street",
 		"registrant street1":                     "registrant_street",
+		"registrant street address":              "registrant_street",
 		"registrant contact address":             "registrant_street",
 		"registrant contact address1":            "registrant_street",
 		"registrant contact street":              "registrant_street",
@@ -171,6 +178,7 @@ var (
 		"registrant mail":                        "registrant_email",
 		"registrant email":                       "registrant_email",
 		"registrant e mail":                      "registrant_email",
+		"registrant email address":               "registrant_email",
 		"registrant contact mail":                "registrant_email",
 		"registrant contact email":               "registrant_email",
 		"registrant contact e mail":              "registrant_email",

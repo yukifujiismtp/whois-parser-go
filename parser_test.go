@@ -1,5 +1,5 @@
 /*
- * Copyright 2014-2020 Li Kexian
+ * Copyright 2014-2021 Li Kexian
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -32,14 +32,18 @@ import (
 )
 
 const (
-	VERIFIEDLIST = `
+	noterrorDir  = "testdata/noterror"
+	notfoundDir  = "testdata/notfound"
+	verifiedList = `
 # WhoisParser
 
 ## Overview
 
-It is supposed to be working with all domain extensions, but verified extensions as below must works, because I have checked them one by one manually.
+It is supposed to be working with all domain extensions,
 
-If there is any problems, please feel free to open a new issue.
+but verified extensions as below must works, because I have checked them one by one manually.
+
+If there is any problem, please feel free to open a new issue.
 
 ## Verified Extensions
 
@@ -54,20 +58,31 @@ func TestVersion(t *testing.T) {
 	assert.Contains(t, License(), "Apache License")
 }
 
-func TestWhoisParser(t *testing.T) {
+func TestParseError(t *testing.T) {
+	tests := map[error]string{
+		ErrNotFoundDomain:    "No matching record.",
+		ErrReservedDomain:    "Reserved Domain Name",
+		ErrPremiumDomain:     "This platinum domain is available for purchase.",
+		ErrBlockedDomain:     "This name subscribes to the Uni EPS+ product",
+		ErrDomainDataInvalid: "connect to whois server failed: dial tcp 43: i/o timeout",
+		ErrDomainLimitExceed: "WHOIS LIMIT EXCEEDED - SEE WWW.PIR.ORG/WHOIS FOR DETAILS",
+	}
+
+	for e, v := range tests {
+		_, err := Parse(v)
+		assert.Equal(t, err, e)
+	}
+
+	_, err := Parse(`Domain Name: likexian-no-money-registe.ai
+	Domain Status: No Object Found`)
+	assert.Equal(t, err, ErrNotFoundDomain)
+}
+
+func TestParse(t *testing.T) {
 	extensions := []string{}
 	domains := map[string][]string{}
 
-	_, err := Parse("not found")
-	assert.Equal(t, err, ErrDomainNotFound)
-
-	_, err = Parse("WHOIS LIMIT EXCEEDED - SEE WWW.PIR.ORG/WHOIS FOR DETAILS")
-	assert.Equal(t, err, ErrDomainLimitExceed)
-
-	_, err = Parse("Hello - SEE WWW.PIR.ORG/WHOIS FOR DETAILS")
-	assert.Equal(t, err, ErrDomainInvalidData)
-
-	dirs, err := xfile.ListDir("./examples/", xfile.TypeFile, -1)
+	dirs, err := xfile.ListDir(noterrorDir, xfile.TypeFile, -1)
 	assert.Nil(t, err)
 
 	for _, v := range dirs {
@@ -85,7 +100,7 @@ func TestWhoisParser(t *testing.T) {
 			continue
 		}
 
-		whoisRaw, err := xfile.ReadText("./examples/" + v.Name)
+		whoisRaw, err := xfile.ReadText(noterrorDir + "/" + v.Name)
 		assert.Nil(t, err)
 
 		whoisInfo, err := Parse(whoisRaw)
@@ -95,25 +110,27 @@ func TestWhoisParser(t *testing.T) {
 		assert.Equal(t, whoisInfo.Domain.Extension, extension)
 
 		if !assert.IsContains([]string{"", "aq", "br", "ch", "de", "edu", "eu", "fr", "gov", "hk",
-			"hm", "int", "it", "jp", "kr", "mo", "nl", "nz", "pm", "re", "ro", "ru", "su", "tf",
-			"tk", "travel", "tv", "tw", "uk", "wf", "yt", "ir", "fi", "rs", "xn--mgba3a4f16a"}, extension) {
+			"hm", "int", "it", "jp", "kr", "kz", "mo", "nl", "nz", "pl", "pm", "re", "ro", "ru", "su", "tf", "ee",
+			"tk", "travel", "tv", "tw", "uk", "wf", "yt", "ir", "fi", "rs", "xn--mgba3a4f16a", "xn--p1ai"}, extension) {
 			assert.NotZero(t, whoisInfo.Domain.ID)
 		}
 
-		if !assert.IsContains([]string{"ch", "edu", "eu", "int", "kr", "mo", "tw", "ir", "tk", "xn--mgba3a4f16a"}, extension) {
+		if !assert.IsContains([]string{"ch", "edu", "eu", "int", "kr", "mo", "tw", "ir", "pl", "tk",
+			"xn--mgba3a4f16a"}, extension) {
 			assert.NotZero(t, whoisInfo.Domain.Status)
 		}
 
-		if assert.IsContains([]string{"git.nl", "git.wf", "switch.ch", "git.xyz"}, domain) {
-			assert.True(t, whoisInfo.Domain.DnsSec)
+		if assert.IsContains([]string{"aftermarket.pl", "nazwa.pl", "git.nl", "git.wf", "switch.ch", "git.xyz"}, domain) {
+			assert.True(t, whoisInfo.Domain.DNSSec)
 		} else {
-			assert.False(t, whoisInfo.Domain.DnsSec)
+			assert.False(t, whoisInfo.Domain.DNSSec)
 		}
 
 		if !assert.IsContains([]string{"aero", "aq", "asia", "berlin", "biz", "br", "ch", "cn",
 			"co", "cymru", "de", "edu", "eu", "fr", "gov", "hk", "hm", "in", "int", "it", "jp", "kr",
 			"la", "london", "me", "mo", "museum", "name", "nl", "nz", "pm", "re", "ro", "ru", "sh",
-			"su", "tel", "tf", "tk", "travel", "tw", "uk", "us", "wales", "wf", "xxx", "yt", "ir", "fi", "rs", "xn--mgba3a4f16a", "xn--fiqs8s"}, extension) {
+			"kz", "su", "tel", "ee", "tf", "tk", "travel", "tw", "uk", "us", "wales", "wf", "xxx", "yt", "ir", "fi", "rs",
+			"xn--mgba3a4f16a", "xn--fiqs8s", "xn--p1ai"}, extension) {
 			assert.NotZero(t, whoisInfo.Domain.WhoisServer)
 		}
 
@@ -121,23 +138,25 @@ func TestWhoisParser(t *testing.T) {
 			assert.NotZero(t, whoisInfo.Domain.NameServers)
 		}
 
-		if !assert.IsContains([]string{"aq", "au", "de", "eu", "gov", "hm", "name", "nl", "nz", "ir", "tk", "xn--mgba3a4f16a"}, extension) {
+		if !assert.IsContains([]string{"aq", "au", "de", "eu", "gov", "hm", "name", "nl", "nz", "ir", "tk",
+			"xn--mgba3a4f16a"}, extension) {
 			assert.NotZero(t, whoisInfo.Domain.CreatedDate)
 		}
 
 		if !assert.IsContains([]string{"aq", "ch", "cn", "eu", "gov", "hk", "hm", "mo",
-			"name", "nl", "ro", "ru", "su", "tk", "tw", "xn--fiqs8s"}, extension) {
+			"name", "nl", "ro", "ru", "su", "tk", "tw", "xn--fiqs8s", "xn--p1ai"}, extension) {
 			assert.NotZero(t, whoisInfo.Domain.UpdatedDate)
 		}
 
-		if !assert.IsContains([]string{"", "aq", "au", "br", "ch", "de", "eu", "gov",
-			"hm", "int", "name", "nl", "nz", "tk"}, extension) {
+		if !assert.IsContains([]string{"", "aq", "au", "br", "ch", "de", "eu", "gov", "ee",
+			"hm", "int", "name", "nl", "nz", "tk", "kz"}, extension) {
 			assert.NotZero(t, whoisInfo.Domain.ExpirationDate)
 		}
 
 		if !assert.IsContains([]string{"", "ai", "aq", "au", "br", "ca", "ch", "cn", "cx", "de",
-			"edu", "eu", "fr", "gov", "gs", "hk", "hm", "int", "it", "jp", "kr", "la", "mo", "nl",
-			"nz", "pm", "re", "ro", "ru", "su", "tf", "tk", "tw", "uk", "wf", "yt", "ir", "fi", "rs", "xn--mgba3a4f16a", "xn--fiqs8s"}, extension) {
+			"edu", "eu", "fr", "gov", "gs", "hk", "hm", "int", "it", "jp", "kr", "kz", "la", "mo", "nl",
+			"nz", "pl", "pm", "re", "ro", "ru", "su", "tf", "tk", "tw", "uk", "wf", "yt", "ir", "fi", "rs", "ee",
+			"xn--mgba3a4f16a", "xn--fiqs8s", "xn--p1ai"}, extension) {
 			assert.NotZero(t, whoisInfo.Registrar.ID)
 		}
 
@@ -147,12 +166,13 @@ func TestWhoisParser(t *testing.T) {
 		}
 
 		if !assert.IsContains([]string{"", "aero", "ai", "aq", "asia", "au", "br", "ch", "cn", "de",
-			"edu", "gov", "hk", "hm", "int", "jp", "kr", "la", "london", "love", "mo",
-			"museum", "name", "nl", "nz", "ru", "su", "tk", "top", "ir", "fi", "rs", "xn--mgba3a4f16a", "xn--fiqs8s"}, extension) {
+			"edu", "gov", "hk", "hm", "int", "jp", "kr", "kz", "la", "london", "love", "mo",
+			"museum", "name", "nl", "nz", "pl", "ru", "su", "tk", "top", "ir", "fi", "rs",
+			"xn--mgba3a4f16a", "xn--fiqs8s", "xn--p1ai"}, extension) {
 			assert.NotZero(t, whoisInfo.Registrar.ReferralURL)
 		}
 
-		err = xjson.Dump("./examples/"+v.Name+".json", whoisInfo)
+		err = xjson.Dump(noterrorDir+"/"+v.Name+".json", whoisInfo)
 		assert.Nil(t, err)
 
 		extension, _ = idna.ToUnicode(extension)
@@ -168,7 +188,7 @@ func TestWhoisParser(t *testing.T) {
 	}
 
 	sort.Strings(extensions)
-	verified := VERIFIEDLIST
+	verified := verifiedList
 
 	for _, extension := range extensions {
 		sort.Strings(domains[extension])
@@ -183,11 +203,11 @@ func TestWhoisParser(t *testing.T) {
 		}
 	}
 
-	err = xfile.WriteText("./examples/README.md", strings.TrimSpace(verified))
+	err = xfile.WriteText(noterrorDir+"/README.md", strings.TrimSpace(verified))
 	assert.Nil(t, err)
 }
 
-func TestTsearchDomain(t *testing.T) {
+func TestAssearchDomain(t *testing.T) {
 	tests := []struct {
 		whois     string
 		name      string

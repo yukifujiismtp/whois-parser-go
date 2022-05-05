@@ -1,44 +1,44 @@
 # WhoisParser
 
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
-[![GoDoc](https://godoc.org/github.com/likexian/whois-parser-go?status.svg)](https://godoc.org/github.com/likexian/whois-parser-go)
-[![Build Status](https://travis-ci.org/likexian/whois-parser-go.svg?branch=master)](https://travis-ci.org/likexian/whois-parser-go)
-[![Go Report Card](https://goreportcard.com/badge/github.com/likexian/whois-parser-go)](https://goreportcard.com/report/github.com/likexian/whois-parser-go)
-[![Code Cover](https://codecov.io/gh/likexian/whois-parser-go/graph/badge.svg)](https://codecov.io/gh/likexian/whois-parser-go)
+[![GoDoc](https://pkg.go.dev/badge/github.com/likexian/whois-parser.svg)](https://pkg.go.dev/github.com/likexian/whois-parser)
+[![Go Report Card](https://goreportcard.com/badge/github.com/likexian/whois-parser)](https://goreportcard.com/report/github.com/likexian/whois-parser)
+[![Build Status](https://github.com/likexian/whois-parser/actions/workflows/gotest.yaml/badge.svg)](https://github.com/likexian/whois-parser/actions/workflows/gotest.yaml)
+[![Code Cover](https://release.likexian.com/whois-parser/coverage.svg)](https://github.com/likexian/whois-parser/actions/workflows/gotest.yaml)
 
-WhoisParser is s simple Go module for domain whois information parsing.
+WhoisParser is a simple Go module for domain whois information parsing.
 
 ## Overview
 
-This module parses the provided whois information and returns a readable data struct.
+This module parses the provided domain whois information and returns a readable data struct.
 
 ## Verified Extensions
 
-It is supposed to be working with all domain extensions, but [verified extensions](examples/README.md) must works, because I have checked them one by one manually.
+It is supposed to be working with all domain extensions, but [verified extensions](testdata/noterror/README.md) must works, because I have checked them one by one manually.
 
-If there is any problems, please feel free to open a new issue.
+If there is any problem, please feel free to open a new issue.
 
 ## Binary distributions
 
-For binary distributions of whois information query and parsing, please download [whois release tool](https://github.com/likexian/whois-go/tree/master/cmd/whois).
+For binary distributions of whois information query and parsing, please download [whois release tool](https://github.com/likexian/whois/tree/master/cmd/whois).
 
 ## Installation
 
 ```shell
-go get github.com/likexian/whois-parser-go
+go get github.com/likexian/whois-parser
 ```
 
 ## Importing
 
 ```go
 import (
-    "github.com/likexian/whois-parser-go"
+    "github.com/likexian/whois-parser"
 )
 ```
 
 ## Documentation
 
-Visit the docs on [GoDoc](https://godoc.org/github.com/likexian/whois-parser-go)
+Visit the docs on [GoDoc](https://pkg.go.dev/github.com/likexian/whois-parser)
 
 ## Example
 
@@ -67,11 +67,11 @@ if err == nil {
 
 ## Whois information query
 
-Please refer to [whois-go](https://github.com/likexian/whois-go)
+Please refer to [whois](https://github.com/likexian/whois)
 
 ## License
 
-Copyright 2014-2020 [Li Kexian](https://www.likexian.com/)
+Copyright 2014-2021 [Li Kexian](https://www.likexian.com/)
 
 Licensed under the Apache License 2.0
 

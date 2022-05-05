@@ -1,5 +1,5 @@
 /*
- * Copyright 2014-2020 Li Kexian
+ * Copyright 2014-2021 Li Kexian
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -29,7 +29,7 @@ import (
 )
 
 // Prepare do prepare the whois info for parsing
-func Prepare(text, ext string) (string, bool) {
+func Prepare(text, ext string) (string, bool) { //nolint:cyclop
 	text = strings.Replace(text, "\r", "", -1)
 	text = strings.Replace(text, "\t", " ", -1)
 	text = strings.TrimSpace(text)
@@ -53,7 +53,7 @@ func Prepare(text, ext string) (string, bool) {
 		return prepareIT(text), true
 	case "fr", "re", "tf", "yt", "pm", "wf":
 		return prepareFR(text), true
-	case "ru", "su":
+	case "ru", "su", "xn--p1ai":
 		return prepareRU(text), true
 	case "fi":
 		return prepareFI(text), true
@@ -77,6 +77,14 @@ func Prepare(text, ext string) (string, bool) {
 		return prepareIR(text), true
 	case "rs":
 		return prepareRS(text), true
+	case "kz":
+		return prepareKZ(text), true
+	case "ee":
+		return prepareEE(text), true
+	case "cn", "xn--fiqs8s", "xn--fiqz9s":
+		return prepareCN(text), true
+	case "pl":
+		return preparePL(text), true
 	default:
 		return text, false
 	}
@@ -120,16 +128,12 @@ func prepareEDU(text string) string {
 		"Registrant:": {
 			"Organization",
 			"Address",
-			"Address",
-			"Address",
-			"Address",
+			"Phone",
+			"Email",
 		},
 		"Administrative Contact:": {
 			"Name",
 			"Organization",
-			"Address",
-			"Address",
-			"Address",
 			"Address",
 			"Phone",
 			"Email",
@@ -137,9 +141,6 @@ func prepareEDU(text string) string {
 		"Technical Contact:": {
 			"Name",
 			"Organization",
-			"Address",
-			"Address",
-			"Address",
 			"Address",
 			"Phone",
 			"Email",
@@ -168,15 +169,14 @@ func prepareEDU(text string) string {
 				// address ending now jump to phone
 				if tokens[token][index] == "Address" && strings.HasPrefix(v, "+") {
 					found := xslice.Index(tokens[token], "Phone")
-					if found == -1 {
-						token = ""
-						index = 0
-						continue
+					if found != -1 {
+						index = found
 					}
-					index = found
 				}
 				result += fmt.Sprintf("\n%s %s: %s", token[:len(token)-1], tokens[token][index], v)
-				index += 1
+				if tokens[token][index] != "Address" {
+					index++
+				}
 			}
 		}
 	}
@@ -210,6 +210,74 @@ func prepareINT(text string) string {
 				}
 			}
 		}
+		result += "\n" + v
+	}
+
+	return result
+}
+
+// prepareKZ do prepare the .kz domain
+func prepareKZ(text string) string {
+
+	groupTokens := map[string]string{
+		"Organization Using Domain Name": "Registrant ",
+		"Administrative Contact/Agent":   "Administrative ",
+	}
+
+	topTokens := map[string]string{
+		"Domain status": "Domain status : ",
+	}
+
+	tokens := map[string]string{
+		"Primary server":   "name server",
+		"Secondary server": "name server",
+		"Current Registar": "Registrar Name",
+	}
+
+	groupToken := ""
+	topToken := ""
+	result := ""
+
+	for _, v := range strings.Split(text, "\n") {
+		v = strings.TrimSpace(v)
+
+		if v == "" {
+			groupToken = ""
+			continue
+		}
+
+		if token, ok := groupTokens[v]; ok {
+			groupToken = token
+			continue
+		}
+
+		if !strings.Contains(v, ":") {
+			if topToken != "" {
+				v = fmt.Sprintf("%s%s", topToken, v)
+			} else {
+				continue
+			}
+		}
+
+		vs := strings.SplitN(v, ":", 2)
+
+		key := strings.TrimSpace(strings.Replace(vs[0], ".", "", -1))
+		key = fmt.Sprintf("%s%s", groupToken, key)
+
+		if token, ok := tokens[key]; ok {
+			key = token
+		}
+
+		value := vs[1]
+
+		if token, ok := topTokens[key]; ok {
+			topToken = token
+		} else {
+			topToken = ""
+		}
+
+		v = fmt.Sprintf("%s: %s", key, value)
+
 		result += "\n" + v
 	}
 
@@ -330,9 +398,10 @@ func prepareHK(text string) string {
 }
 
 // prepareTW do prepare the .tw domain
-func prepareTW(text string) string {
+func prepareTW(text string) string { //nolint:cyclop
 	tokens := map[string][]string{
 		"Registrant:": {
+			"Organization",
 			"Organization",
 			"Name,Email",
 			"Phone",
@@ -363,7 +432,7 @@ func prepareTW(text string) string {
 	result := ""
 	for _, v := range strings.Split(text, "\n") {
 		v = strings.TrimSpace(v)
-		if v == "" {
+		if token == "" && v == "" {
 			continue
 		}
 		for _, s := range []string{"Record created on", "Record expires on"} {
@@ -381,8 +450,33 @@ func prepareTW(text string) string {
 			if token == "" {
 				result += "\n" + v
 			} else {
-				index += 1
+				index++
+				if index > len(tokens[token])-1 {
+					continue
+				}
 				tokenName := token[:len(token)-1]
+				// Organization may be one line or two lines
+				if tokenName == "Registrant" && tokens[token][index] == "Organization" {
+					if strings.Contains(v, "@") {
+						// Organization one line, jump to next
+						index++
+					} else if index == 1 {
+						// Organization two line, join it
+						result = strings.TrimSpace(result)
+						if !strings.HasSuffix(result, ":") {
+							result += ", " + v
+						} else {
+							result += " " + v
+						}
+						continue
+					}
+				}
+				// See testdata/noterror/tw_git.tw
+				if tokenName == "Registrant" && tokens[token][index] != "Address" {
+					if len(v) == 2 && strings.ToLower(v) != v {
+						index = xslice.Index(tokens[token], "Address")
+					}
+				}
 				indexName := tokens[token][index]
 				if tokenName == "Contact" {
 					tokenName = "Registrant Contact"
@@ -553,7 +647,7 @@ func prepareFR(text string) string {
 		}
 
 		if strings.TrimSpace(vs[0]) == hdlToken {
-			for _, kk := range Keys(hdls) {
+			for _, kk := range keys(hdls) {
 				if strings.TrimSpace(vs[1]) == hdls[kk] {
 					token = kk + " "
 					delete(hdls, kk)
@@ -588,6 +682,8 @@ func prepareRU(text string) string {
 		vs := strings.Split(v, ":")
 		if vv, ok := tokens[strings.TrimSpace(vs[0])]; ok {
 			v = fmt.Sprintf("%s: %s", vv, vs[1])
+		} else if vs[0] == "nserver" {
+			v = strings.Replace(v, ",", " ", -1)
 		}
 		result += v + "\n"
 	}
@@ -613,10 +709,13 @@ func prepareJP(text string) string {
 			continue
 		}
 		if strings.Contains(v, ":") {
-			vs := strings.Split(v, ":")
+			vs := strings.SplitN(v, ":", 2)
 			token = strings.TrimSpace(vs[0])
 			if token == adminToken {
 				prefixToken = "admin "
+			}
+			if strings.ToLower(token) == "registrant" {
+				v = fmt.Sprintf("registrant name: %s", vs[1])
 			}
 		} else {
 			if token == addressToken {
@@ -662,6 +761,7 @@ func prepareKR(text string) string {
 		"AC E-Mail":                  "Administrative Contact E-Mail",
 		"AC Phone Number":            "Administrative Contact Phone Number",
 		"Authorized Agency":          "Registrar Name",
+		"Registrant":                 "Registrant Name",
 	}
 
 	pos := strings.Index(text, english)
@@ -727,6 +827,7 @@ func prepareTK(text string) string {
 			"Address",
 			"Address",
 			"Address",
+			"Country",
 		},
 	}
 
@@ -749,7 +850,7 @@ func prepareTK(text string) string {
 			v = fmt.Sprintf("Name: %s\nStatus: %s", vv[0], vv[1])
 		} else if token == "Registrant" && !strings.Contains(v, ":") {
 			v = fmt.Sprintf("%s: %s", fields[token][index], v)
-			index += 1
+			index++
 		}
 		if token != "" {
 			if !strings.Contains(v, ":") {
@@ -803,7 +904,7 @@ func prepareNL(text string) string {
 				result += "\n" + v
 			} else {
 				result += fmt.Sprintf("\n%s %s: %s", token[:len(token)-1], tokens[token][index], v)
-				index += 1
+				index++
 			}
 		}
 	}
@@ -1031,6 +1132,130 @@ func prepareRS(text string) string {
 			}
 		}
 		result += "\n" + v
+	}
+
+	return result
+}
+
+// prepareEE do prepare the .ee domain
+func prepareEE(text string) string {
+	tokens := map[string]string{
+		"Domain:":                 "Domain",
+		"Registrar:":              "Registrar",
+		"Registrant:":             "Registrant",
+		"Administrative contact:": "Administrative",
+		"Technical contact:":      "Technical",
+		"Name servers:":           "",
+	}
+
+	token := ""
+	result := ""
+
+	for _, v := range strings.Split(text, "\n") {
+		v = strings.TrimSpace(v)
+		if len(v) == 0 {
+			token = ""
+			continue
+		}
+		if t, ok := tokens[v]; ok {
+			token = t
+			continue
+		} else {
+			v = fmt.Sprintf("%s %s", token, v)
+		}
+		result += "\n" + strings.TrimSpace(v)
+	}
+
+	return result
+}
+
+// prepareCN do prepare the .cn domain
+func prepareCN(text string) string {
+	var result string
+
+	for _, v := range strings.Split(text, "\n") {
+		v = strings.TrimSpace(v)
+		if strings.Contains(v, ":") {
+			vs := strings.SplitN(v, ":", 2)
+			if strings.ToLower(strings.TrimSpace(vs[0])) == "registrant" {
+				vs[0] = "registrant name"
+			}
+			v = fmt.Sprintf("%s: %s", vs[0], vs[1])
+		}
+		result += "\n" + v
+	}
+
+	return result
+}
+
+// preparePL prepares the .pl domain
+func preparePL(text string) string {
+	result := ""
+	special := ""
+	registrarLine := 0
+	for _, v := range strings.Split(text, "\n") {
+		if special == "nameservers" {
+			if strings.HasPrefix(v, " ") {
+				ns := strings.SplitN(v, "[", 2)
+				result += fmt.Sprintf("\nnameservers: %s", strings.TrimSpace(ns[0]))
+				continue
+			} else {
+				special = ""
+			}
+		} else if special == "REGISTRAR" {
+			if strings.TrimSpace(v) == "" {
+				special = ""
+			} else {
+				switch registrarLine {
+				case 0:
+					// always name
+					result += fmt.Sprintf("\nregistrar name: %s", strings.TrimSpace(v))
+				case 1:
+					// always street address
+					result += fmt.Sprintf("\nregistrar street: %s", strings.TrimSpace(v))
+				case 2:
+					// postal code, city, state, sometimes country in an undefined format
+					// there's no way we can reliably unpack that
+					registrarLine++
+					continue
+				default:
+					// usually country unless it was on previous line, then phones/emails/www
+					if strings.Contains(v, "@") {
+						// email may have an "e-mail" prefix, but mostly does not
+						result += fmt.Sprintf("\nregistrar email: %s", strings.TrimSpace(strings.TrimLeft(v, "e-mail:")))
+					} else if strings.HasPrefix(v, "+") {
+						// phone numbers helpfully always start with +
+						result += fmt.Sprintf("\nregistrar phone: %s", strings.TrimSpace(v))
+					} else if strings.Contains(v, ".") {
+						// WWW addresses sometimes include http/https, sometimes do not
+						result += fmt.Sprintf("\nregistrar www: %s", strings.TrimSpace(v))
+					} else {
+						result += fmt.Sprintf("\nregistrar country: %s", strings.TrimSpace(v))
+					}
+				}
+				registrarLine++
+				continue
+			}
+		}
+
+		v = strings.TrimSpace(v)
+		if v == "" {
+			continue
+		}
+
+		if strings.HasPrefix(v, "nameservers: ") {
+			special = "nameservers"
+			ns := strings.SplitN(v, "[", 2)
+			result += fmt.Sprintf("\n%s", strings.TrimSpace(ns[0]))
+			continue
+		}
+
+		if strings.HasPrefix(v, "REGISTRAR:") {
+			special = "REGISTRAR"
+			continue
+		}
+
+		result += fmt.Sprintf("\n%s", strings.ReplaceAll(v, "WHOIS database responses:", "whois:"))
 	}
 
 	return result

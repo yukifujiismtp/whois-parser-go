@@ -1,5 +1,5 @@
 /*
- * Copyright 2014-2020 Li Kexian
+ * Copyright 2014-2021 Li Kexian
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,7 +20,6 @@
 package whoisparser
 
 import (
-	"errors"
 	"regexp"
 	"strings"
 
@@ -29,18 +28,9 @@ import (
 	"golang.org/x/net/idna"
 )
 
-// Domain info error and replacer variables
-var (
-	ErrDomainNotFound    = errors.New("Domain is not found.")
-	ErrDomainInvalidData = errors.New("Domain whois data invalid.")
-	ErrDomainLimitExceed = errors.New("Domain query limit exceeded.")
-	ErrPremiumDomain     = errors.New("The domain is not registered, but available at a premium price.")
-	ErrBlockedDomain     = errors.New("The domain name is blocked due to a DPML brand name block.")
-)
-
 // Version returns package version
 func Version() string {
-	return "1.15.1"
+	return "1.22.0"
 }
 
 // Author returns package author
@@ -54,19 +44,15 @@ func License() string {
 }
 
 // Parse returns parsed whois info
-func Parse(text string) (whoisInfo WhoisInfo, err error) {
+func Parse(text string) (whoisInfo WhoisInfo, err error) { //nolint:cyclop
 	name, extension := searchDomain(text)
 	if name == "" {
-		err = ErrDomainInvalidData
-		if IsNotFound(text) {
-			err = ErrDomainNotFound
-		} else if IsPremiumDomain(text) {
-			err = ErrPremiumDomain
-		} else if IsBlockedDomain(text) {
-			err = ErrBlockedDomain
-		} else if IsLimitExceeded(text) {
-			err = ErrDomainLimitExceed
-		}
+		err = getDomainErrorType(text)
+		return
+	}
+
+	if extension != "" && isExtNotFoundDomain(text, extension) {
+		err = ErrNotFoundDomain
 		return
 	}
 
@@ -94,7 +80,7 @@ func Parse(text string) (whoisInfo WhoisInfo, err error) {
 		}
 
 		if line[len(line)-1:] == ":" {
-			i += 1
+			i++
 			for ; i < len(whoisLines); i++ {
 				thisLine := strings.TrimSpace(whoisLines[i])
 				if strings.Contains(thisLine, ":") {
@@ -103,7 +89,7 @@ func Parse(text string) (whoisInfo WhoisInfo, err error) {
 				line += thisLine + ","
 			}
 			line = strings.Trim(line, ",")
-			i -= 1
+			i--
 		}
 
 		lines := strings.SplitN(line, ":", 2)
@@ -115,7 +101,7 @@ func Parse(text string) (whoisInfo WhoisInfo, err error) {
 			continue
 		}
 
-		keyName := FindKeyName(name)
+		keyName := searchKeyName(name)
 		switch keyName {
 		case "domain_id":
 			domain.ID = value
@@ -127,8 +113,8 @@ func Parse(text string) (whoisInfo WhoisInfo, err error) {
 		case "domain_status":
 			domain.Status = append(domain.Status, strings.Split(value, ",")...)
 		case "domain_dnssec":
-			if !domain.DnsSec {
-				domain.DnsSec = IsDnsSecEnabled(value)
+			if !domain.DNSSec {
+				domain.DNSSec = isDNSSecEnabled(value)
 			}
 		case "whois_server":
 			if domain.WhoisServer == "" {
@@ -151,9 +137,13 @@ func Parse(text string) (whoisInfo WhoisInfo, err error) {
 		case "referral_url":
 			registrar.ReferralURL = value
 		default:
-			name = ClearName(name)
+			name = clearKeyName(name)
 			if !strings.Contains(name, " ") {
-				name += " name"
+				if name == "registrar" {
+					name += " name"
+				} else {
+					name += " organization"
+				}
 			}
 			ns := strings.SplitN(name, " ", 2)
 			name = strings.TrimSpace("registrant " + ns[1])
@@ -171,8 +161,8 @@ func Parse(text string) (whoisInfo WhoisInfo, err error) {
 		}
 	}
 
-	domain.NameServers = FixNameServers(domain.NameServers)
-	domain.Status = FixDomainStatus(domain.Status)
+	domain.NameServers = fixNameServers(domain.NameServers)
+	domain.Status = fixDomainStatus(domain.Status)
 
 	domain.NameServers = xslice.Unique(domain.NameServers).([]string)
 	domain.Status = xslice.Unique(domain.Status).([]string)
@@ -203,13 +193,17 @@ func Parse(text string) (whoisInfo WhoisInfo, err error) {
 
 // parseContact do parse contact info
 func parseContact(contact *Contact, name, value string) {
-	switch FindKeyName(name) {
+	switch searchKeyName(name) {
 	case "registrant_id":
 		contact.ID = value
 	case "registrant_name":
-		contact.Name = value
+		if contact.Name == "" {
+			contact.Name = value
+		}
 	case "registrant_organization":
-		contact.Organization = value
+		if contact.Organization == "" {
+			contact.Organization = value
+		}
 	case "registrant_street":
 		if contact.Street == "" {
 			contact.Street = value
@@ -237,19 +231,28 @@ func parseContact(contact *Contact, name, value string) {
 	}
 }
 
-// searchDomain find domain from whois info
-func searchDomain(text string) (string, string) {
-	r := regexp.MustCompile(`(?i)\[?domain(\s*\_?name)?\]?[\s\.]*\:?\s*([^\s]+)\.([^\.\s]{2,})`)
+// searchDomain finds domain name and extension from whois information
+func searchDomain(text string) (name, extension string) {
+	r := regexp.MustCompile(`(?i)\[?domain\:?(\s*\_?name)?\]?[\s\.]*\:?\s*([^\s\,\;\(\)]+)\.([^\s\,\;\(\)\.]{2,})`)
 	m := r.FindStringSubmatch(text)
 	if len(m) > 0 {
-		return strings.ToLower(strings.TrimSpace(m[2])), strings.ToLower(strings.TrimSpace(m[3]))
+		name = strings.TrimSpace(m[2])
+		extension = strings.TrimSpace(m[3])
 	}
 
-	r = regexp.MustCompile(`(?i)\[?domain(\s*\_?name)?\]?\s*\:?\s*([^\.\s]{2,})\n`)
-	m = r.FindStringSubmatch(text)
-	if len(m) > 0 {
-		return strings.ToLower(strings.TrimSpace(m[2])), ""
+	if name == "" {
+		r := regexp.MustCompile(`(?i)\[?domain\:?(\s*\_?name)?\]?[\s\.]*\:?\s*([^\s\,\;\(\)\.]{2,})\n`)
+		m := r.FindStringSubmatch(text)
+		if len(m) > 0 {
+			name = strings.TrimSpace(m[2])
+			extension = ""
+		}
 	}
 
-	return "", ""
+	if name != "" {
+		name = strings.ToLower(name)
+		extension = strings.ToLower(extension)
+	}
+
+	return
 }

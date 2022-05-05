@@ -1,4 +1,4 @@
-module github.com/matthewljsmith/whois-parser
+module github.com/matthewljsmith/whois-parser-go
 
 go 1.18
 
